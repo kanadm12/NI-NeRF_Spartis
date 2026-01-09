@@ -19,8 +19,9 @@ apt-get install -y git wget unzip
 # Install Python packages
 echo "Installing Python packages..."
 pip install --upgrade pip
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-pip install numpy opencv-python SimpleITK commentjson tqdm tensorboard
+pip install -r /workspace/NI-NeRF_Spartis/requirements.txt || \
+    (pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 && \
+     pip install numpy opencv-python SimpleITK commentjson tqdm tensorboard pybind11 matplotlib)
 
 # Clone repository
 echo "Cloning NI-NeRF repository..."
@@ -54,11 +55,21 @@ echo "Setup Complete!"
 echo "=========================================="
 echo ""
 echo "Next steps:"
-echo "1. Upload your data to /workspace/NI-NeRF_Spartis/data/"
-echo "2. Edit config.json with your data path"
-echo "3. Optional: Run pre-training with: python pretrain.py"
-echo "4. Start training with: python main.py"
+echo "1. Ensure patient data is in /workspace/drr_patient_data/"
+echo "   Each patient folder should contain:"
+echo "   - PATIENT_ID.nii.gz"
+echo "   - PATIENT_ID_lat_drr.png"
+echo "   - PATIENT_ID_pa_drr.png"
 echo ""
-echo "Monitor training with TensorBoard:"
-echo "  tensorboard --logdir=log --bind_all"
+echo "2. Run preprocessing (includes vertical DRR flip):"
+echo "   python preprocess_data.py --data_root /workspace/drr_patient_data --output_dir data"
+echo ""
+echo "3. Verify preprocessed data:"
+echo "   python verify_data.py data/PATIENT_ID.pickle"
+echo ""
+echo "4. Train all patients:"
+echo "   ./train_all_patients.sh"
+echo ""
+echo "5. Monitor with TensorBoard:"
+echo "   tensorboard --logdir=log --bind_all"
 echo ""

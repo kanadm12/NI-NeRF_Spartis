@@ -1,10 +1,9 @@
 #!/bin/bash
-# Batch training script for 100 patients
+# Batch training script for all patients
 # Usage: ./train_all_patients.sh
 
 set -e
 
-TOTAL_PATIENTS=100
 DATA_DIR="data"
 CHECKPOINT_DIR="checkpoint"
 BACKUP_DIR="${CHECKPOINT_DIR}/backup"
@@ -12,29 +11,38 @@ BACKUP_DIR="${CHECKPOINT_DIR}/backup"
 # Create backup directory
 mkdir -p "$BACKUP_DIR"
 
+# Count actual pickle files
+PICKLE_FILES=(${DATA_DIR}/*.pickle)
+TOTAL_PATIENTS=${#PICKLE_FILES[@]}
+
 echo "=========================================="
 echo "NI-NeRF Batch Training"
-echo "Training ${TOTAL_PATIENTS} patients"
+echo "Found ${TOTAL_PATIENTS} patients to train"
 echo "=========================================="
 
 # Log file
 LOG_FILE="training_log_$(date +%Y%m%d_%H%M%S).txt"
 
-for i in $(seq 1 $TOTAL_PATIENTS); do
+# Train each patient
+PATIENT_NUM=0
+for PATIENT_DATA in ${DATA_DIR}/*.pickle; do
+    PATIENT_NUM=$((PATIENT_NUM + 1))
+    
+    # Extract patient ID from filename
+    PATIENT_NAME=$(basename "$PATIENT_DATA" .pickle)
+    
     echo ""
     echo "===========================================" | tee -a "$LOG_FILE"
-    echo "Patient ${i} / ${TOTAL_PATIENTS}" | tee -a "$LOG_FILE"
+    echo "Patient ${PATIENT_NUM} / ${TOTAL_PATIENTS}" | tee -a "$LOG_FILE"
+    echo "ID: ${PATIENT_NAME}" | tee -a "$LOG_FILE"
+    echo "Data: ${PATIENT_DATA}" | tee -a "$LOG_FILE"
     echo "Start Time: $(date)" | tee -a "$LOG_FILE"
     echo "===========================================" | tee -a "$LOG_FILE"
-    
-    # Update config.json for this patient
-    PATIENT_DATA="${DATA_DIR}/patient_${i}.pickle"
-    PATIENT_NAME="patient_${i}"
     
     # Check if data file exists
     if [ ! -f "$PATIENT_DATA" ]; then
         echo "WARNING: Data file not found: $PATIENT_DATA" | tee -a "$LOG_FILE"
-        echo "Skipping patient ${i}" | tee -a "$LOG_FILE"
+        echo "Skipping patient" | tee -a "$LOG_FILE"
         continue
     fi
     
@@ -60,15 +68,15 @@ for i in $(seq 1 $TOTAL_PATIENTS); do
     fi
     
     echo "End Time: $(date)" | tee -a "$LOG_FILE"
-    echo "Patient ${i} completed!" | tee -a "$LOG_FILE"
+    echo "Patient ${PATIENT_NAME} completed!" | tee -a "$LOG_FILE"
     
     # Clean up temp config
     rm -f config_temp.json
     
-    # Optional: compress old checkpoints to save space
-    if [ $((i % 10)) -eq 0 ]; then
+    # Optional: compress old checkpoints to save space every 10 patients
+    if [ $((PATIENT_NUM % 10)) -eq 0 ]; then
         echo "Compressing old checkpoints..." | tee -a "$LOG_FILE"
-        gzip -f ${CHECKPOINT_DIR}/patient_$((i-9))_*.pkl 2>/dev/null || true
+        find ${CHECKPOINT_DIR} -name "*.pkl" -type f | head -n -10 | xargs gzip -f 2>/dev/null || true
     fi
 done
 
