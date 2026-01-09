@@ -9,3 +9,4 @@ tqdm>=4.65.0
 tensorboard>=2.10.0
 pybind11>=2.10.0
 matplotlib>=3.5.0
+pytorch-msssim>=1.0.0
