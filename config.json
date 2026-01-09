@@ -9,14 +9,14 @@
 	"train": {
 		"gpu": 0,
 		"lr": 1e-3,
-		"epoch": 3000,
-		"save_epoch": 100,
+		"epoch": 100,
+		"save_epoch": 20,
 		"num_sample_ray": 1024,
 		"num_sample_point": 320,
-		"lr_decay_epoch": 3000,
+		"lr_decay_epoch": 80,
 		"lr_decay_coefficient": 0.1,
 		"batch_size": 1,
 		"visualize": 1,
-		"visualize_epoch": 20
+		"visualize_epoch": 10
 	}
 }
