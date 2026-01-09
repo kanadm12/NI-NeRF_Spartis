@@ -115,7 +115,7 @@ for epoch in range(epochs):
         
         # Forward pass
         B = rays.shape[0]
-        rays = rays.reshape(-1, num_sample_point, 3)
+        rays = rays.reshape(-1, num_sample_point, 3).float()  # Ensure float32
         rays_input = rays.reshape(-1, 3)
         
         # Get patient embeddings
