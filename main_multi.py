@@ -81,9 +81,8 @@ encoder = HashEncoder(input_dim=3, num_levels=10, level_dim=2, base_resolution=1
 NeRF = model.naf(out_size=1, hidden_dim=32+embedding_dim, encoder=encoder)  # Increased hidden_dim for embeddings
 mask = torch.ones((1,20)).cuda()
 
-# init optimizer
+# init optimizer (encoder is part of NeRF, don't duplicate)
 optimizer = torch.optim.Adam([{'params': NeRF.parameters(), 'lr': lr},
-                              {'params': encoder.parameters(), 'lr': lr},
                               {'params': patient_embeddings.parameters(), 'lr': lr}])
 
 # load pretrain model
