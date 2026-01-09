@@ -78,7 +78,38 @@ patient_embeddings = torch.nn.Embedding(num_patients, embedding_dim).cuda()
 print(f"Patient embeddings: {num_patients} patients × {embedding_dim} dims")
 
 encoder = HashEncoder(input_dim=3, num_levels=10, level_dim=2, base_resolution=16, log2_hashmap_size=19).cuda()
-NeRF = model.naf(out_size=1, hidden_dim=32+embedding_dim, encoder=encoder)  # Increased hidden_dim for embeddings
+
+# Wrapper class to add patient conditioning
+class PatientConditionedNeRF(torch.nn.Module):
+    def __init__(self, base_nerf, embedding_dim):
+        super().__init__()
+        self.base_nerf = base_nerf
+        # Additional layer to process patient embeddings into the encoded space
+        self.patient_proj = torch.nn.Linear(embedding_dim, base_nerf.encoder.output_dim).cuda()
+    
+    def forward(self, x, mask, patient_embed=None):
+        # x: [N, 3] coordinates
+        # Encode coordinates
+        encoded = self.base_nerf.encoder(x).float()
+        
+        # Add patient conditioning if provided
+        if patient_embed is not None:
+            patient_features = self.patient_proj(patient_embed)
+            # Broadcast patient features to all points
+            if patient_features.shape[0] != encoded.shape[0]:
+                patient_features = patient_features.unsqueeze(1).expand(-1, encoded.shape[0] // patient_features.shape[0], -1)
+                patient_features = patient_features.reshape(-1, patient_features.shape[-1])
+            encoded = encoded + patient_features
+        
+        # Layer norm and rest of network
+        encoded = self.base_nerf.ln(encoded) * mask
+        y = self.base_nerf.linear1(encoded)
+        y = torch.cat([encoded, y], -1)
+        y = self.base_nerf.linear2(y)
+        return y
+
+base_nerf = model.naf(out_size=1, hidden_dim=32, encoder=encoder)
+NeRF = PatientConditionedNeRF(base_nerf, embedding_dim)
 mask = torch.ones((1,20)).cuda()
 
 # init optimizer (encoder is part of NeRF, don't duplicate)
@@ -121,19 +152,8 @@ for epoch in range(epochs):
         # Get patient embeddings
         patient_embed = patient_embeddings(patient_ids.cuda())  # [B, embedding_dim]
         
-        # Encode coordinates (size=1 means inputs in [-1, 1] range)
-        encoded = encoder(rays_input, size=1)  # [B*num_rays*num_points, encoded_dim]
-        
-        # Expand patient embeddings to match encoded shape
-        num_rays_per_batch = encoded.shape[0] // B
-        patient_embed_expanded = patient_embed.unsqueeze(1).expand(-1, num_rays_per_batch, -1)
-        patient_embed_expanded = patient_embed_expanded.reshape(-1, embedding_dim)
-        
-        # Concatenate coordinate encoding with patient embedding
-        encoded_with_patient = torch.cat([encoded, patient_embed_expanded], dim=-1)
-        
-        # Predict density
-        density = NeRF(encoded_with_patient, mask).squeeze(-1)
+        # Pass through NeRF with patient conditioning
+        density = NeRF(rays_input, mask, patient_embed=patient_embed).squeeze(-1)
         density = density.reshape(B, -1, num_sample_point)
         
         # Render (Beer-Lambert law)
