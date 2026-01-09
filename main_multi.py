@@ -71,14 +71,20 @@ print(f"  Batch size: {batch_size}")
 print(f"  Epochs: {epochs}")
 print(f"{'='*60}\n")
 
-# construct NeRF
+# construct NeRF with patient embeddings
+num_patients = len(train_dataset.patients)
+embedding_dim = 32
+patient_embeddings = torch.nn.Embedding(num_patients, embedding_dim).cuda()
+print(f"Patient embeddings: {num_patients} patients × {embedding_dim} dims")
+
 encoder = HashEncoder(input_dim=3, num_levels=10, level_dim=2, base_resolution=16, log2_hashmap_size=19).cuda()
-NeRF = model.naf(out_size=1, hidden_dim=32, encoder=encoder)
+NeRF = model.naf(out_size=1, hidden_dim=32+embedding_dim, encoder=encoder)  # Increased hidden_dim for embeddings
 mask = torch.ones((1,20)).cuda()
 
 # init optimizer
 optimizer = torch.optim.Adam([{'params': NeRF.parameters(), 'lr': lr},
-                              {'params': encoder.parameters(), 'lr': lr}])
+                              {'params': encoder.parameters(), 'lr': lr},
+                              {'params': patient_embeddings.parameters(), 'lr': lr}])
 
 # load pretrain model
 pre_train = config['file']['check_point']
@@ -105,7 +111,7 @@ for epoch in range(epochs):
     epoch_loss = 0.0
     pbar = tqdm(TrainLoader, desc=f'Epoch {epoch+1}/{epochs}')
     
-    for rays, projections, coords in pbar:
+    for rays, projections, coords, patient_ids in pbar:
         optimizer.zero_grad()
         
         # Forward pass
@@ -113,9 +119,22 @@ for epoch in range(epochs):
         rays = rays.reshape(-1, num_sample_point, 3)
         rays_input = rays.reshape(-1, 3)
         
-        # Encode and predict
-        encoded = encoder(rays_input, bound=1)
-        density = NeRF(encoded, mask).squeeze(-1)
+        # Get patient embeddings
+        patient_embed = patient_embeddings(patient_ids.cuda())  # [B, embedding_dim]
+        
+        # Encode coordinates
+        encoded = encoder(rays_input, bound=1)  # [B*num_rays*num_points, encoded_dim]
+        
+        # Expand patient embeddings to match encoded shape
+        num_rays_per_batch = encoded.shape[0] // B
+        patient_embed_expanded = patient_embed.unsqueeze(1).expand(-1, num_rays_per_batch, -1)
+        patient_embed_expanded = patient_embed_expanded.reshape(-1, embedding_dim)
+        
+        # Concatenate coordinate encoding with patient embedding
+        encoded_with_patient = torch.cat([encoded, patient_embed_expanded], dim=-1)
+        
+        # Predict density
+        density = NeRF(encoded_with_patient, mask).squeeze(-1)
         density = density.reshape(B, -1, num_sample_point)
         
         # Render (Beer-Lambert law)
@@ -156,6 +175,7 @@ for epoch in range(epochs):
             'epoch': epoch + 1,
             'NeRF': NeRF.state_dict(),
             'encoder': encoder.state_dict(),
+            'patient_embeddings': patient_embeddings.state_dict(),
             'optimizer': optimizer.state_dict(),
             'loss': avg_loss,
         }, checkpoint_path)
@@ -167,7 +187,10 @@ torch.save({
     'epoch': epochs,
     'NeRF': NeRF.state_dict(),
     'encoder': encoder.state_dict(),
+    'patient_embeddings': patient_embeddings.state_dict(),
     'optimizer': optimizer.state_dict(),
+    'num_patients': num_patients,
+    'embedding_dim': embedding_dim,
 }, final_path)
 
 print(f"\n{'='*60}")

@@ -64,6 +64,9 @@ class MultiPatientDataset(data.Dataset):
         patient = self.patients[patient_idx]
         data = patient['data']
         
+        # Patient ID for conditioning
+        patient_id = torch.tensor(patient_idx, dtype=torch.long)
+        
         # Get geometry parameters
         DSD = data['DSD'] / 1000 * self.scale_factor
         DSO = data['DSO'] / 1000 * self.scale_factor
@@ -97,7 +100,7 @@ class MultiPatientDataset(data.Dataset):
         select_rays = self._get_rays(select_coordinates, source, 
                                      DSO, num_voxel, size_voxel)
         
-        return select_rays, select_projections, select_coordinates
+        return select_rays, select_projections, select_coordinates, patient_id
     
     def __len__(self):
         return len(self.indices)
