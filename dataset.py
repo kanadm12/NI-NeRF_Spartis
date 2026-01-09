@@ -24,7 +24,10 @@ class TrainData(data.Dataset):
         self.num_voxel = np.array(data["nVoxel"])
         self.size_voxel = np.array(data['dVoxel'])/1000*scale_factor
         self.angles = data['train']['angles']
-        self.projections = torch.tensor(data['train']['projections']).cuda()
+        # Vertically flip DRRs during loading (not preprocessing)
+        projections = data['train']['projections']
+        projections = np.flip(projections, axis=1).copy()  # Flip along height dimension
+        self.projections = torch.tensor(projections).cuda()
         self.n_samples = data["numTrain"]
 
         self.coordinates = self.GetPosition().cuda()

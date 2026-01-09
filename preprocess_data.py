@@ -24,14 +24,10 @@ def load_nifti_volume(nifti_path):
     return volume, spacing
 
 
-def load_and_flip_drr(drr_path):
-    """Load DRR image and flip vertically"""
+def load_drr(drr_path):
+    """Load DRR image (flipping done during training)"""
     drr = cv2.imread(str(drr_path), cv2.IMREAD_GRAYSCALE)
-    
-    # Vertical flip (flip along axis 0)
-    drr_flipped = np.flip(drr, axis=0).copy()
-    
-    return drr_flipped
+    return drr
 
 
 def preprocess_patient(patient_folder, output_dir, 
@@ -73,10 +69,10 @@ def preprocess_patient(patient_folder, output_dir,
     print(f"  Loading volume: {nifti_path.name}")
     volume, spacing = load_nifti_volume(nifti_path)
     
-    # Load and flip DRRs
-    print(f"  Loading DRRs (with vertical flip)...")
-    lat_projection = load_and_flip_drr(lat_drr_path)
-    pa_projection = load_and_flip_drr(pa_drr_path)
+    # Load DRRs (flipping happens during training)
+    print(f"  Loading DRRs...")
+    lat_projection = load_drr(lat_drr_path)
+    pa_projection = load_drr(pa_drr_path)
     
     # Normalize projections to [0, 1]
     lat_projection = lat_projection.astype(np.float32) / 255.0
