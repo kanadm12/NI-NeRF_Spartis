@@ -34,11 +34,8 @@ else
     git pull
 fi
 
-# Build hash encoder
-echo "Building hash encoder..."
-cd hashencoder
-python setup.py build_ext --inplace
-cd ..
+# Hash encoder uses JIT compilation - will compile on first import
+echo "Hash encoder will auto-compile on first use (requires CUDA)"
 
 # Create directories
 echo "Creating directories..."
