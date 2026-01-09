@@ -121,8 +121,8 @@ for epoch in range(epochs):
         # Get patient embeddings
         patient_embed = patient_embeddings(patient_ids.cuda())  # [B, embedding_dim]
         
-        # Encode coordinates
-        encoded = encoder(rays_input, bound=1)  # [B*num_rays*num_points, encoded_dim]
+        # Encode coordinates (size=1 means inputs in [-1, 1] range)
+        encoded = encoder(rays_input, size=1)  # [B*num_rays*num_points, encoded_dim]
         
         # Expand patient embeddings to match encoded shape
         num_rays_per_batch = encoded.shape[0] // B
