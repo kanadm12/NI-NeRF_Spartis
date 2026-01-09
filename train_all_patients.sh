@@ -46,14 +46,12 @@ for PATIENT_DATA in ${DATA_DIR}/*.pickle; do
         continue
     fi
     
-    # Create temporary config
-    cat config.json | \
-        sed "s|\"in_dir\": \".*\"|\"in_dir\": \"${PATIENT_DATA}\"|" | \
-        sed "s|\"name\": \".*\"|\"name\": \"${PATIENT_NAME}\"|" \
-        > config_temp.json
-    
-    # Train this patient
-    python main.py --config config_temp.json 2>&1 | tee -a "$LOG_FILE"
+    # Train this patient with explicit data path
+    python main.py \
+        --config config.json \
+        --data_path "${PATIENT_DATA}" \
+        --name "${PATIENT_NAME}" \
+        2>&1 | tee -a "$LOG_FILE"
     
     # Backup checkpoint
     if [ -f "${CHECKPOINT_DIR}/${PATIENT_NAME}.pkl" ]; then
@@ -69,9 +67,6 @@ for PATIENT_DATA in ${DATA_DIR}/*.pickle; do
     
     echo "End Time: $(date)" | tee -a "$LOG_FILE"
     echo "Patient ${PATIENT_NAME} completed!" | tee -a "$LOG_FILE"
-    
-    # Clean up temp config
-    rm -f config_temp.json
     
     # Optional: compress old checkpoints to save space every 10 patients
     if [ $((PATIENT_NUM % 10)) -eq 0 ]; then

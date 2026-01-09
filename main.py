@@ -13,6 +13,7 @@ from hashencoder import HashEncoder
 from level_mask import get_mask
 from tqdm import tqdm
 from render import render, get_coordinate
+import argparse
 
 # constrain CPU core
 cpu_num = 4
@@ -23,19 +24,26 @@ os.environ['VECLIB_MAXIMUM_THREADS'] = str(cpu_num)
 os.environ['NUMEXPR_NUM_THREADS'] = str(cpu_num)
 torch.set_num_threads(cpu_num)
 
+# Parse command line arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('--config', type=str, default='config.json', help='Path to config file')
+parser.add_argument('--data_path', type=str, default=None, help='Override data path from config')
+parser.add_argument('--name', type=str, default=None, help='Override case name from config')
+args = parser.parse_args()
+
 # import config
-config_path = "config.json"
+config_path = args.config
 with open(config_path) as config_file:
         config = json.load(config_file)
 # set GPU
 gpu = config['train']['gpu']
 torch.cuda.set_device(gpu)
 
-# file root
-input = config['file']['in_dir'] # input file
+# file root - override with command line args if provided
+input = args.data_path if args.data_path else config['file']['in_dir']
 output = config['file']['out_dir'] #output file
 ckp = config['file']['model_dir'] # checkpoint root
-name = config['file']['name'] # case name
+name = args.name if args.name else config['file']['name']
 
 if not os.path.exists(ckp):
     os.makedirs(ckp)
